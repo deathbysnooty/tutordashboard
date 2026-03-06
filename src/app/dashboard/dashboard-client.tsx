@@ -6,7 +6,8 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { getLessonsForMonth, adminGetLessonsForMonth, saveAttendance, updateLessonStartTime, updateRecurringSeriesTime, deleteLesson, deleteLessonSeries } from "@/app/actions/lessons";
+import { getLessonsForMonth, adminGetLessonsForMonth, saveAttendance, adminSaveAttendance, updateLessonStartTime, adminUpdateLessonStartTime, updateRecurringSeriesTime, adminUpdateRecurringSeriesTime, deleteLesson, adminDeleteLesson, deleteLessonSeries, adminDeleteLessonSeries } from "@/app/actions/lessons";
+import type { AttendanceEntry } from "@/app/actions/lessons";
 import { AttendanceDrawer } from "./attendance-drawer";
 import { AddStudentDialog } from "@/app/students/add-student-dialog";
 
@@ -174,7 +175,7 @@ export function DashboardClient({ students, tutorId, isAdminView = false, allTut
   function handleDateClick(info: { dateStr: string; date: Date }) {
     if (viewMode === "month") {
       switchToDay(info.dateStr);
-    } else if (!isAdminView) {
+    } else {
       // Clicked empty time slot in day view — open drawer with that time
       const time = roundToNearest30(info.date);
       setDrawerDate(info.dateStr.split("T")[0]);
@@ -185,7 +186,7 @@ export function DashboardClient({ students, tutorId, isAdminView = false, allTut
   function handleEventClick(info: { event: { startStr: string; extendedProps: Record<string, unknown> } }) {
     if (viewMode === "month") {
       switchToDay(info.event.startStr);
-    } else if (!isAdminView) {
+    } else {
       // Clicked a lesson block in day view
       const lesson = info.event.extendedProps.lesson as LessonRecord;
       setDrawerDate(lesson.attendanceDate);
@@ -200,11 +201,17 @@ export function DashboardClient({ students, tutorId, isAdminView = false, allTut
     if (!info.event.start) { info.revert(); return; }
     const newTime = `${String(info.event.start.getHours()).padStart(2, "0")}:${String(info.event.start.getMinutes()).padStart(2, "0")}`;
     try {
-      await updateLessonStartTime(info.event.id, newTime);
-      // Also shift all future scheduled lessons in the same recurring series
       const lesson = info.event.extendedProps.lesson as LessonRecord;
-      if (lesson?.recurringGroupId) {
-        await updateRecurringSeriesTime(lesson.recurringGroupId, newTime);
+      if (isAdminView) {
+        await adminUpdateLessonStartTime(info.event.id, newTime);
+        if (lesson?.recurringGroupId) {
+          await adminUpdateRecurringSeriesTime(lesson.recurringGroupId, newTime);
+        }
+      } else {
+        await updateLessonStartTime(info.event.id, newTime);
+        if (lesson?.recurringGroupId) {
+          await updateRecurringSeriesTime(lesson.recurringGroupId, newTime);
+        }
       }
       await loadLessons(currentYear, currentMonth);
     } catch {
@@ -213,17 +220,41 @@ export function DashboardClient({ students, tutorId, isAdminView = false, allTut
   }
 
   async function handleDeleteLesson(lessonId: string) {
-    await deleteLesson(lessonId);
+    if (isAdminView) {
+      await adminDeleteLesson(lessonId);
+    } else {
+      await deleteLesson(lessonId);
+    }
     await loadLessons(currentYear, currentMonth);
   }
 
   async function handleDeleteSeries(recurringGroupId: string, fromDate: string) {
-    await deleteLessonSeries(recurringGroupId, fromDate);
+    if (isAdminView) {
+      await adminDeleteLessonSeries(recurringGroupId, fromDate);
+    } else {
+      await deleteLessonSeries(recurringGroupId, fromDate);
+    }
     await loadLessons(currentYear, currentMonth);
   }
 
-  async function handleSave(date: string, entries: Parameters<typeof saveAttendance>[1]) {
-    await saveAttendance(date, entries);
+  async function handleSave(date: string, entries: AttendanceEntry[]) {
+    if (isAdminView && viewAsTutorId) {
+      await adminSaveAttendance(
+        viewAsTutorId,
+        date,
+        entries.map((e) => ({
+          lessonId: e.lessonId,
+          studentId: e.studentId,
+          startTime: e.startTime,
+          subject: e.subject,
+          lessonType: e.lessonType,
+          extended30Min: e.extended30Min,
+          recurring: e.recurring ?? false,
+        }))
+      );
+    } else {
+      await saveAttendance(date, entries);
+    }
     await loadLessons(currentYear, currentMonth);
     setDrawerDate(null);
     setDrawerStartTime(null);
@@ -266,11 +297,6 @@ export function DashboardClient({ students, tutorId, isAdminView = false, allTut
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
-          {isAdminView && (
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>
-              Read-only view
-            </span>
-          )}
         </div>
       )}
 
@@ -310,15 +336,13 @@ export function DashboardClient({ students, tutorId, isAdminView = false, allTut
           </button>
           <span className="text-gray-300">|</span>
           <span className="text-sm font-semibold text-gray-800">{formattedDay}</span>
-          {!isAdminView && (
-            <button
-              onClick={() => { setDrawerDate(selectedDate); setDrawerStartTime(roundToNearest30(new Date())); }}
-              className="ml-auto text-sm font-medium px-4 py-2 rounded-xl text-white"
-              style={{ backgroundColor: "#0F1C3F" }}
-            >
-              + Log attendance
-            </button>
-          )}
+          <button
+            onClick={() => { setDrawerDate(selectedDate); setDrawerStartTime(roundToNearest30(new Date())); }}
+            className="ml-auto text-sm font-medium px-4 py-2 rounded-xl text-white"
+            style={{ backgroundColor: "#0F1C3F" }}
+          >
+            + Log attendance
+          </button>
         </div>
       )}
 

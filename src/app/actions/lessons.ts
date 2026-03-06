@@ -160,6 +160,94 @@ export async function saveAttendance(
   revalidatePath("/dashboard");
 }
 
+export interface AdminAttendanceEntry {
+  studentId: string;
+  startTime: string | null;
+  subject: string | null;
+  lessonType: "group" | "individual" | null;
+  extended30Min: boolean;
+  recurring: boolean;
+}
+
+export async function adminSaveAttendance(
+  tutorId: string,
+  date: string,
+  entries: AdminAttendanceEntry[]
+) {
+  const session = await auth();
+  if (!session || session.user.role !== "admin") throw new Error("Unauthorized");
+
+  const batch = adminDb.batch();
+
+  const resolvedEntries = await Promise.all(entries.map(async (entry) => {
+    const existing = await adminDb.collection("tutorStudents")
+      .where("tutorId", "==", tutorId)
+      .where("studentId", "==", entry.studentId)
+      .where("active", "==", true)
+      .get();
+    if (!existing.empty) return { ...entry, tutorStudentId: existing.docs[0].id };
+    const newRef = adminDb.collection("tutorStudents").doc();
+    batch.set(newRef, {
+      tutorId,
+      studentId: entry.studentId,
+      ratePerLesson: null,
+      active: true,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    return { ...entry, tutorStudentId: newRef.id };
+  }));
+
+  for (const entry of resolvedEntries) {
+    const tsDoc = await adminDb.collection("tutorStudents").doc(entry.tutorStudentId).get();
+    const rateSnapshot = tsDoc.data()?.ratePerLesson ?? null;
+    const recurringGroupId = entry.recurring ? randomUUID() : null;
+
+    const ref = adminDb.collection("lessons").doc();
+    batch.set(ref, {
+      studentId: entry.studentId,
+      tutorId,
+      tutorStudentId: entry.tutorStudentId,
+      rateSnapshot,
+      attendanceDate: date,
+      startTime: entry.startTime ?? null,
+      subject: entry.subject ?? null,
+      lessonType: entry.lessonType ?? null,
+      status: "attended",
+      extended30Min: entry.extended30Min,
+      recurringGroupId,
+      loggedAt: FieldValue.serverTimestamp(),
+      loggedBy: session.user.id,
+      syncedToSheet: false,
+    });
+
+    if (recurringGroupId) {
+      for (let week = 1; week <= 25; week++) {
+        const futureRef = adminDb.collection("lessons").doc();
+        batch.set(futureRef, {
+          studentId: entry.studentId,
+          tutorId,
+          tutorStudentId: entry.tutorStudentId,
+          rateSnapshot,
+          attendanceDate: addWeeks(date, week),
+          startTime: entry.startTime ?? null,
+          subject: entry.subject ?? null,
+          lessonType: entry.lessonType ?? null,
+          status: "attended",
+          extended30Min: false,
+          recurringGroupId,
+          loggedAt: FieldValue.serverTimestamp(),
+          loggedBy: session.user.id,
+          syncedToSheet: false,
+        });
+      }
+    }
+  }
+
+  await batch.commit();
+  revalidatePath("/admin/timetable");
+  revalidatePath("/admin/attendance");
+}
+
 export async function deleteLesson(lessonId: string) {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");

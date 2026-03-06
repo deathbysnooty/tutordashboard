@@ -60,6 +60,17 @@ export default async function TimetablePage({
     if (doc.exists) tutorNames[doc.id] = doc.data()!.name ?? "Unknown";
   }
 
+  // Fetch all students and all active tutors for the add-lesson modal
+  const [allStudentSnap, allTutorSnap] = await Promise.all([
+    adminDb.collection("students").get(),
+    adminDb.collection("users").where("status", "==", "active").get(),
+  ]);
+
+  const allStudents = allStudentSnap.docs.map((d) => ({ id: d.id, name: d.data().name as string }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const allTutors = allTutorSnap.docs.map((d) => ({ id: d.id, name: d.data().name as string }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const events: TimetableEvent[] = snap.docs.map((d) => ({
     id: d.id,
     attendanceDate: d.data().attendanceDate,
@@ -78,5 +89,5 @@ export default async function TimetablePage({
     ([, a], [, b]) => a.localeCompare(b)
   );
 
-  return <TimetableClient events={events} tutors={tutors} targetMonth={targetMonth} />;
+  return <TimetableClient events={events} tutors={tutors} targetMonth={targetMonth} allStudents={allStudents} allTutors={allTutors} />;
 }

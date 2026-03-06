@@ -19,6 +19,7 @@ export function AdminNav({ pendingCount }: Props) {
   const tabs: Tab[] = [
     { label: "Users", href: "/admin/users", badge: pendingCount > 0 ? pendingCount : undefined },
     { label: "Students", href: "/admin/students" },
+    { label: "Timetable", href: "/admin/timetable" },
     { label: "Attendance Log", href: "/admin/attendance" },
     { label: "Sync to Sheet", href: "/admin/sync" },
   ];

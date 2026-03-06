@@ -87,7 +87,7 @@ export async function saveAttendance(
         syncedToSheet: false,
       });
 
-      // If converting one-time → recurring, create 25 future scheduled docs
+      // If converting one-time → recurring, create 25 future attended docs
       if (newRecurringGroupId && !existingRecurringGroupId && existingDoc.data()?.attendanceDate) {
         const lessonDate = existingDoc.data()!.attendanceDate as string;
         for (let week = 1; week <= 25; week++) {
@@ -101,7 +101,7 @@ export async function saveAttendance(
             startTime: entry.startTime ?? null,
             subject: entry.subject ?? null,
             lessonType: entry.lessonType ?? null,
-            status: "scheduled",
+            status: "attended",
             extended30Min: false,
             recurringGroupId: newRecurringGroupId,
             loggedAt: FieldValue.serverTimestamp(),
@@ -131,7 +131,7 @@ export async function saveAttendance(
         syncedToSheet: false,
       });
 
-      // Create 25 future weekly placeholder docs
+      // Create 25 future weekly attended docs
       if (recurringGroupId) {
         for (let week = 1; week <= 25; week++) {
           const futureRef = adminDb.collection("lessons").doc();
@@ -144,7 +144,7 @@ export async function saveAttendance(
             startTime: entry.startTime ?? null,
             subject: entry.subject ?? null,
             lessonType: entry.lessonType ?? null,
-            status: "scheduled",
+            status: "attended",
             extended30Min: false,
             recurringGroupId,
             loggedAt: FieldValue.serverTimestamp(),

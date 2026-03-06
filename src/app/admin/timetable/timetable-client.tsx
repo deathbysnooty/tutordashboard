@@ -95,9 +95,9 @@ export function TimetableClient({ events, tutors, targetMonth, allStudents, allT
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h1 className="text-xl font-semibold text-gray-900">Timetable</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => { setShowModal(true); setError(""); }}
             className="px-4 py-2 rounded-xl text-sm font-semibold text-white"

@@ -57,22 +57,23 @@ export default async function UsersPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-100">
-              <th className="text-left text-xs font-medium text-gray-500 px-6 py-3">
+              <th className="text-left text-xs font-medium text-gray-500 px-4 sm:px-6 py-3">
                 User
               </th>
-              <th className="text-left text-xs font-medium text-gray-500 px-6 py-3">
+              <th className="text-left text-xs font-medium text-gray-500 px-4 sm:px-6 py-3 hidden sm:table-cell">
                 Role
               </th>
-              <th className="text-left text-xs font-medium text-gray-500 px-6 py-3">
+              <th className="text-left text-xs font-medium text-gray-500 px-4 sm:px-6 py-3 hidden sm:table-cell">
                 Status
               </th>
-              <th className="text-left text-xs font-medium text-gray-500 px-6 py-3">
+              <th className="text-left text-xs font-medium text-gray-500 px-4 sm:px-6 py-3 hidden md:table-cell">
                 Joined
               </th>
-              <th className="text-left text-xs font-medium text-gray-500 px-6 py-3">
+              <th className="text-left text-xs font-medium text-gray-500 px-4 sm:px-6 py-3">
                 Actions
               </th>
             </tr>
@@ -86,7 +87,7 @@ export default async function UsersPage() {
                 }`}
               >
                 {/* User info */}
-                <td className="px-6 py-4">
+                <td className="px-4 sm:px-6 py-4">
                   <div className="flex items-center gap-3">
                     {user.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -112,7 +113,7 @@ export default async function UsersPage() {
                 </td>
 
                 {/* Role */}
-                <td className="px-6 py-4">
+                <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
                   <span
                     className={`text-xs font-medium px-2 py-1 rounded-full ${
                       user.role === "admin"
@@ -130,7 +131,7 @@ export default async function UsersPage() {
                 </td>
 
                 {/* Status */}
-                <td className="px-6 py-4">
+                <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
                   <span
                     className={`text-xs font-medium px-2 py-1 rounded-full ${
                       user.status === "active"
@@ -143,14 +144,14 @@ export default async function UsersPage() {
                 </td>
 
                 {/* Joined */}
-                <td className="px-6 py-4">
+                <td className="px-4 sm:px-6 py-4 hidden md:table-cell">
                   <span className="text-sm text-gray-500">
                     {user.createdAtFormatted}
                   </span>
                 </td>
 
                 {/* Actions */}
-                <td className="px-6 py-4">
+                <td className="px-4 sm:px-6 py-4">
                   <UserActions
                     userId={user.id}
                     status={user.status}
@@ -173,6 +174,7 @@ export default async function UsersPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

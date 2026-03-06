@@ -76,12 +76,12 @@ export function AttendanceLogClient({ rows, tutors, targetMonth }: Props) {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Attendance Log</h1>
           <p className="text-sm text-gray-500 mt-1">{monthLabel}</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
           {attended.length > 0 && (
             <div className="text-right">
               <p className="text-xs text-gray-400">Total lessons</p>

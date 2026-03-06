@@ -35,10 +35,10 @@ interface Props {
   tutorRates?: TutorRateEntry[];
 }
 
-function RateEditor({ tutorStudentId, tutorName, initial }: TutorRateEntry) {
+function RateEditor({ tutorStudentId, tutorName, ratePerLesson }: TutorRateEntry) {
   const [editing, setEditing] = useState(false);
-  const [input, setInput] = useState(initial?.toString() ?? "");
-  const [current, setCurrent] = useState(initial);
+  const [input, setInput] = useState(ratePerLesson?.toString() ?? "");
+  const [current, setCurrent] = useState(ratePerLesson);
   const [isPending, startTransition] = useTransition();
 
   function handleSave() {

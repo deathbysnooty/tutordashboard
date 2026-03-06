@@ -100,7 +100,7 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
   const existingSheets = meta.data.sheets ?? [];
   const existingTitles: Record<string, number> = {};
   for (const s of existingSheets) {
-    if (s.properties?.title && s.properties.sheetId !== undefined) {
+    if (s.properties?.title && s.properties.sheetId != null) {
       existingTitles[s.properties.title] = s.properties.sheetId;
     }
   }

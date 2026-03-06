@@ -212,8 +212,8 @@ export function DashboardClient({ students, tutorId }: Props) {
     await loadLessons(currentYear, currentMonth);
   }
 
-  async function handleDeleteSeries(recurringGroupId: string) {
-    await deleteLessonSeries(recurringGroupId);
+  async function handleDeleteSeries(recurringGroupId: string, fromDate: string) {
+    await deleteLessonSeries(recurringGroupId, fromDate);
     await loadLessons(currentYear, currentMonth);
   }
 

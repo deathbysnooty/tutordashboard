@@ -171,7 +171,7 @@ export async function deleteLesson(lessonId: string) {
   revalidatePath("/dashboard");
 }
 
-export async function deleteLessonSeries(recurringGroupId: string) {
+export async function deleteLessonSeries(recurringGroupId: string, fromDate: string) {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");
 
@@ -181,7 +181,7 @@ export async function deleteLessonSeries(recurringGroupId: string) {
 
   const batch = adminDb.batch();
   for (const doc of snap.docs) {
-    if (doc.data().tutorId === session.user.id) {
+    if (doc.data().tutorId === session.user.id && doc.data().attendanceDate >= fromDate) {
       batch.delete(doc.ref);
     }
   }

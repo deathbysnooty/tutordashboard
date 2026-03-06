@@ -30,7 +30,7 @@ interface Props {
   existingLessons: LessonRecord[];
   onSave: (date: string, entries: AttendanceEntry[]) => Promise<void>;
   onDeleteLesson?: (lessonId: string) => Promise<void>;
-  onDeleteSeries?: (recurringGroupId: string) => Promise<void>;
+  onDeleteSeries?: (recurringGroupId: string, fromDate: string) => Promise<void>;
   onClose: () => void;
   onAddStudent?: () => void;
 }
@@ -156,7 +156,7 @@ export function AttendanceDrawer({
     setIsDeleting(true);
     try {
       if (deleteAll && e.recurringGroupId) {
-        await onDeleteSeries?.(e.recurringGroupId);
+        await onDeleteSeries?.(e.recurringGroupId, date);
       } else {
         await onDeleteLesson?.(e.id);
       }

@@ -11,7 +11,7 @@ import { AttendanceDrawer } from "./attendance-drawer";
 import { AddStudentDialog } from "@/app/students/add-student-dialog";
 
 interface StudentRow {
-  tutorStudentId: string;
+  tutorStudentId: string | null;
   studentId: string;
   name: string;
 }

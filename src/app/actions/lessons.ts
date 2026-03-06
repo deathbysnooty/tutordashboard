@@ -307,6 +307,36 @@ export async function getLessonsForMonth(year: number, month: number) {
   }));
 }
 
+export async function adminGetLessonsForMonth(tutorId: string, year: number, month: number) {
+  const session = await auth();
+  if (!session || session.user.role !== "admin") throw new Error("Unauthorized");
+
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const end = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const snap = await adminDb
+    .collection("lessons")
+    .where("tutorId", "==", tutorId)
+    .where("attendanceDate", ">=", start)
+    .where("attendanceDate", "<=", end)
+    .get();
+
+  return snap.docs.map((d) => ({
+    id: d.id,
+    studentId: d.data().studentId as string,
+    tutorStudentId: d.data().tutorStudentId as string,
+    attendanceDate: d.data().attendanceDate as string,
+    status: d.data().status as "attended" | "scheduled",
+    extended30Min: d.data().extended30Min as boolean,
+    rateSnapshot: d.data().rateSnapshot as number | null,
+    startTime: (d.data().startTime as string | null) ?? null,
+    subject: (d.data().subject as string | null) ?? null,
+    lessonType: (d.data().lessonType as "group" | "individual" | null) ?? null,
+    recurringGroupId: (d.data().recurringGroupId as string | null) ?? null,
+  }));
+}
+
 export async function updateLessonStartTime(lessonId: string, startTime: string) {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");

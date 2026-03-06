@@ -6,7 +6,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { getLessonsForMonth, saveAttendance, updateLessonStartTime, updateRecurringSeriesTime, deleteLesson, deleteLessonSeries } from "@/app/actions/lessons";
+import { getLessonsForMonth, adminGetLessonsForMonth, saveAttendance, updateLessonStartTime, updateRecurringSeriesTime, deleteLesson, deleteLessonSeries } from "@/app/actions/lessons";
 import { AttendanceDrawer } from "./attendance-drawer";
 import { AddStudentDialog } from "@/app/students/add-student-dialog";
 
@@ -33,6 +33,9 @@ interface LessonRecord {
 interface Props {
   students: StudentRow[];
   tutorId: string;
+  isAdminView?: boolean;
+  allTutors?: { id: string; name: string }[];
+  viewAsTutorId?: string;
 }
 
 const MAX_VISIBLE = 3;
@@ -83,7 +86,7 @@ function MonthEventContent({ lessons, scheduledCount, studentMap }: {
   );
 }
 
-export function DashboardClient({ students, tutorId }: Props) {
+export function DashboardClient({ students, tutorId, isAdminView = false, allTutors, viewAsTutorId }: Props) {
   const router = useRouter();
   const calendarRef = useRef<FullCalendar>(null);
   const [lessons, setLessons] = useState<LessonRecord[]>([]);
@@ -99,9 +102,11 @@ export function DashboardClient({ students, tutorId }: Props) {
   for (const s of students) studentMap[s.studentId] = s.name;
 
   const loadLessons = useCallback(async (year: number, month: number) => {
-    const data = await getLessonsForMonth(year, month);
+    const data = isAdminView && viewAsTutorId
+      ? await adminGetLessonsForMonth(viewAsTutorId, year, month)
+      : await getLessonsForMonth(year, month);
     setLessons(data);
-  }, []);
+  }, [isAdminView, viewAsTutorId]);
 
   useEffect(() => {
     loadLessons(currentYear, currentMonth);
@@ -169,7 +174,7 @@ export function DashboardClient({ students, tutorId }: Props) {
   function handleDateClick(info: { dateStr: string; date: Date }) {
     if (viewMode === "month") {
       switchToDay(info.dateStr);
-    } else {
+    } else if (!isAdminView) {
       // Clicked empty time slot in day view — open drawer with that time
       const time = roundToNearest30(info.date);
       setDrawerDate(info.dateStr.split("T")[0]);
@@ -180,7 +185,7 @@ export function DashboardClient({ students, tutorId }: Props) {
   function handleEventClick(info: { event: { startStr: string; extendedProps: Record<string, unknown> } }) {
     if (viewMode === "month") {
       switchToDay(info.event.startStr);
-    } else {
+    } else if (!isAdminView) {
       // Clicked a lesson block in day view
       const lesson = info.event.extendedProps.lesson as LessonRecord;
       setDrawerDate(lesson.attendanceDate);
@@ -248,6 +253,27 @@ export function DashboardClient({ students, tutorId }: Props) {
 
   return (
     <div className="flex-1 max-w-5xl w-full mx-auto px-4 py-6">
+      {/* Admin tutor switcher */}
+      {allTutors && allTutors.length > 0 && (
+        <div className="flex items-center gap-3 mb-4 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
+          <span className="text-xs font-medium text-gray-500">Viewing as:</span>
+          <select
+            value={viewAsTutorId ?? tutorId}
+            onChange={(e) => router.push(e.target.value ? `/dashboard?tutor=${e.target.value}` : "/dashboard")}
+            className="border border-gray-200 rounded-xl px-3 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0F1C3F]/20"
+          >
+            {allTutors.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+          {isAdminView && (
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>
+              Read-only view
+            </span>
+          )}
+        </div>
+      )}
+
       <style>{`
         .fc .fc-toolbar-title { font-size: 1rem; font-weight: 600; color: #111827; }
         .fc .fc-button { background: #0F1C3F !important; border-color: #0F1C3F !important; font-size: 0.75rem !important; padding: 0.375rem 0.75rem !important; border-radius: 0.5rem !important; }
@@ -284,13 +310,15 @@ export function DashboardClient({ students, tutorId }: Props) {
           </button>
           <span className="text-gray-300">|</span>
           <span className="text-sm font-semibold text-gray-800">{formattedDay}</span>
-          <button
-            onClick={() => { setDrawerDate(selectedDate); setDrawerStartTime(roundToNearest30(new Date())); }}
-            className="ml-auto text-sm font-medium px-4 py-2 rounded-xl text-white"
-            style={{ backgroundColor: "#0F1C3F" }}
-          >
-            + Log attendance
-          </button>
+          {!isAdminView && (
+            <button
+              onClick={() => { setDrawerDate(selectedDate); setDrawerStartTime(roundToNearest30(new Date())); }}
+              className="ml-auto text-sm font-medium px-4 py-2 rounded-xl text-white"
+              style={{ backgroundColor: "#0F1C3F" }}
+            >
+              + Log attendance
+            </button>
+          )}
         </div>
       )}
 

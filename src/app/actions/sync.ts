@@ -120,7 +120,7 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
         },
       });
       const newId = addResp.data.replies?.[0]?.addSheet?.properties?.sheetId;
-      if (newId !== undefined) existingTitles[tabName] = newId;
+      if (newId != null) existingTitles[tabName] = newId;
     }
 
     // 5. Group lessons by (studentId, rateSnapshot) — same rate = same row

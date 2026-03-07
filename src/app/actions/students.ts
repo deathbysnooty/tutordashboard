@@ -168,6 +168,28 @@ export async function bulkImportStudents(names: string[]) {
   return { created: clean.length };
 }
 
+export async function deleteStudent(studentId: string) {
+  const session = await auth();
+  if (!session || session.user.role !== "admin") throw new Error("Unauthorized");
+
+  const batch = adminDb.batch();
+
+  // Delete the student doc
+  batch.delete(adminDb.collection("students").doc(studentId));
+
+  // Delete all tutorStudents links for this student
+  const tsSnap = await adminDb.collection("tutorStudents")
+    .where("studentId", "==", studentId)
+    .get();
+  for (const doc of tsSnap.docs) {
+    batch.delete(doc.ref);
+  }
+
+  await batch.commit();
+  revalidatePath("/admin/students");
+  revalidatePath("/students");
+}
+
 export async function updateStudentRate(
   tutorStudentId: string,
   ratePerLesson: number | null

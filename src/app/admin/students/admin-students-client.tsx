@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { updateStudentRate, bulkImportStudents } from "@/app/actions/students";
+import { updateStudentRate, bulkImportStudents, deleteStudent } from "@/app/actions/students";
 import type { StudentRow } from "./page";
 
 interface RateEditorProps {
@@ -140,6 +140,46 @@ function BulkImportModal({ onClose, onDone }: { onClose: () => void; onDone: (co
   );
 }
 
+function DeleteStudentButton({ studentId, studentName }: { studentId: string; studentName: string }) {
+  const router = useRouter();
+  const [confirm, setConfirm] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  if (confirm) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-gray-500">Delete &quot;{studentName}&quot;?</span>
+        <button
+          onClick={() => startTransition(async () => {
+            await deleteStudent(studentId);
+            router.refresh();
+          })}
+          disabled={isPending}
+          className="text-xs font-medium text-white px-2 py-1 rounded-lg disabled:opacity-50"
+          style={{ backgroundColor: "#DC2626" }}
+        >
+          {isPending ? "…" : "Yes, delete"}
+        </button>
+        <button
+          onClick={() => setConfirm(false)}
+          className="text-xs text-gray-400 hover:text-gray-600"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setConfirm(true)}
+      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+    >
+      Delete
+    </button>
+  );
+}
+
 export function AdminStudentsClient({ rows }: { rows: StudentRow[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -257,6 +297,7 @@ export function AdminStudentsClient({ rows }: { rows: StudentRow[] }) {
               <th className="text-left text-xs font-medium text-gray-500 px-6 py-3 hidden md:table-cell">IB Session</th>
               <th className="text-left text-xs font-medium text-gray-500 px-6 py-3">Status</th>
               <th className="text-left text-xs font-medium text-gray-500 px-6 py-3">Tutor · Rate</th>
+              <th className="px-6 py-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -307,11 +348,14 @@ export function AdminStudentsClient({ rows }: { rows: StudentRow[] }) {
                     </div>
                   )}
                 </td>
+                <td className="px-6 py-4">
+                  <DeleteStudentButton studentId={row.studentId} studentName={row.name} />
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
                   {search || activeFilters > 0 ? "No students match your filters" : "No students yet"}
                 </td>
               </tr>

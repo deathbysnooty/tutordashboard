@@ -12,7 +12,6 @@ const HEADERS = [
   "Duration (min)",
   "Type",
   "# Attended",
-  "# Extended (120 min)",
   "Earnings ($)",
 ];
 
@@ -123,12 +122,12 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
       if (newId != null) existingTitles[tabName] = newId;
     }
 
-    // 5. Group lessons by (studentId, rateSnapshot) — same rate = same row
-    type GroupKey = string; // `${studentId}::${rate}`
+    // 5. Group lessons by (studentId, rateSnapshot, extended30Min) — separate rows for different durations
+    type GroupKey = string;
     const groups: Record<GroupKey, Lesson[]> = {};
 
     for (const l of tutorLessons) {
-      const key = `${l.studentId}::${l.rateSnapshot ?? "null"}`;
+      const key = `${l.studentId}::${l.rateSnapshot ?? "null"}::${l.extended30Min}`;
       if (!groups[key]) groups[key] = [];
       groups[key].push(l);
     }
@@ -149,7 +148,8 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
       const rate = groupLessons[0].rateSnapshot ?? 0;
 
       const attended = groupLessons.filter((l) => l.status === "attended");
-      const extended = attended.filter((l) => l.extended30Min);
+      const isExtended = groupLessons[0].extended30Min;
+      const duration = isExtended ? 120 : 90;
 
       // Unique subjects
       const subjects = [...new Set(groupLessons.map((l) => l.subject).filter(Boolean))];
@@ -162,20 +162,19 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
       // Attended dates
       const attendedDates = formatDates(attended.map((l) => l.attendanceDate));
 
-      // Earnings formula: =D{row}*(G{row}+H{row}*(1/3))
-      // Rate × (attended + extended × 1/3) — extended adds an extra 1/3 on top of base
-      // Columns: A=Student, B=Subjects, C=Dates, D=Rate, E=Duration, F=Type, G=#Attended, H=#Extended, I=Earnings
-      const earningsFormula = `=D${rowIndex}*(G${rowIndex}+H${rowIndex}*(1/3))`;
+      // Earnings formula: Rate × #Attended × (Duration / 90)
+      // 90 min = 1× rate, 120 min = 4/3× rate
+      // Columns: A=Student, B=Subjects, C=Dates, D=Rate, E=Duration, F=Type, G=#Attended, H=Earnings
+      const earningsFormula = `=D${rowIndex}*G${rowIndex}*(E${rowIndex}/90)`;
 
       rows.push([
         studentNames[studentId] ?? "Unknown",
         subjects.length > 0 ? subjects.join(", ") : "—",
         attendedDates || "—",
         rate || "—",
-        "90",
+        duration,
         types.length > 0 ? types.join(", ") : "—",
         attended.length,
-        extended.length,
         earningsFormula,
       ]);
       rowIndex++;

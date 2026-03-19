@@ -40,6 +40,7 @@ function formatDates(lessons: { attendanceDate: string; extended30Min: boolean }
 }
 
 export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?: string; tutorsSync: number }> {
+  try {
   const session = await auth();
   if (!session || session.user.role !== "admin") throw new Error("Unauthorized");
 
@@ -248,4 +249,7 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
   }
 
   return { ok: true, tutorsSync };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e), tutorsSync: 0 };
+  }
 }

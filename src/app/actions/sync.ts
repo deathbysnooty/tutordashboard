@@ -19,6 +19,7 @@ type Lesson = {
   id: string;
   tutorId: string;
   studentId: string;
+  tutorStudentId: string | null;
   attendanceDate: string;
   status: string;
   extended30Min: boolean;
@@ -56,6 +57,7 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
     studentId: d.data().studentId,
     attendanceDate: d.data().attendanceDate,
     status: d.data().status,
+    tutorStudentId: d.data().tutorStudentId ?? null,
     extended30Min: d.data().extended30Min ?? false,
     rateSnapshot: d.data().rateSnapshot ?? null,
     subject: d.data().subject ?? null,
@@ -71,9 +73,10 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
   const studentIds = [...new Set(lessons.map((l) => l.studentId))];
   const tutorIds = [...new Set(lessons.map((l) => l.tutorId))];
 
-  const [studentDocs, tutorDocs] = await Promise.all([
+  const [studentDocs, tutorDocs, tutorStudentsSnap] = await Promise.all([
     Promise.all(studentIds.map((id) => adminDb.collection("students").doc(id).get())),
     Promise.all(tutorIds.map((id) => adminDb.collection("users").doc(id).get())),
+    adminDb.collection("tutorStudents").get(),
   ]);
 
   const studentNames: Record<string, string> = {};
@@ -84,6 +87,15 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
   const tutorNames: Record<string, string> = {};
   for (const doc of tutorDocs) {
     if (doc.exists) tutorNames[doc.id] = doc.data()!.name ?? "Unknown";
+  }
+
+  // Current rates from tutorStudents — keyed by "tutorId::studentId"
+  const currentRates: Record<string, number> = {};
+  for (const doc of tutorStudentsSnap.docs) {
+    const data = doc.data();
+    if (data.tutorId && data.studentId && data.ratePerLesson != null) {
+      currentRates[`${data.tutorId}::${data.studentId}`] = data.ratePerLesson;
+    }
   }
 
   // 3. Group lessons by tutor
@@ -122,34 +134,30 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
       if (newId != null) existingTitles[tabName] = newId;
     }
 
-    // 5. Group lessons by (studentId, rateSnapshot, extended30Min) — separate rows for different durations
-    type GroupKey = string;
-    const groups: Record<GroupKey, Lesson[]> = {};
+    // 5. Group lessons by studentId only — one row per student
+    const groups: Record<string, Lesson[]> = {};
 
     for (const l of tutorLessons) {
-      const key = `${l.studentId}::${l.rateSnapshot ?? "null"}::${l.extended30Min}`;
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(l);
+      if (!groups[l.studentId]) groups[l.studentId] = [];
+      groups[l.studentId].push(l);
     }
 
-    // 6. Build rows  (col J = Earnings formula, data starts at row 2)
+    // 6. Build rows
     const rows: (string | number)[][] = [HEADERS];
-    let rowIndex = 2; // spreadsheet row number for first data row
 
     // Sort groups by student name
-    const sortedGroups = Object.entries(groups).sort(([, a], [, b]) => {
-      const nameA = studentNames[a[0].studentId] ?? "";
-      const nameB = studentNames[b[0].studentId] ?? "";
+    const sortedGroups = Object.entries(groups).sort(([idA], [idB]) => {
+      const nameA = studentNames[idA] ?? "";
+      const nameB = studentNames[idB] ?? "";
       return nameA.localeCompare(nameB);
     });
 
-    for (const [, groupLessons] of sortedGroups) {
-      const studentId = groupLessons[0].studentId;
-      const rate = groupLessons[0].rateSnapshot ?? 0;
+    for (const [studentId, groupLessons] of sortedGroups) {
+      // Use the current tutorStudents rate (admin may have updated it)
+      const tutorId = groupLessons[0].tutorId;
+      const rate = currentRates[`${tutorId}::${studentId}`] ?? 0;
 
       const attended = groupLessons.filter((l) => l.status === "attended");
-      const isExtended = groupLessons[0].extended30Min;
-      const duration = isExtended ? 120 : 90;
 
       // Unique subjects
       const subjects = [...new Set(groupLessons.map((l) => l.subject).filter(Boolean))];
@@ -162,10 +170,15 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
       // Attended dates
       const attendedDates = formatDates(attended.map((l) => l.attendanceDate));
 
-      // Earnings formula: Rate × #Attended × (Duration / 90)
-      // 90 min = 1× rate, 120 min = 4/3× rate
-      // Columns: A=Student, B=Subjects, C=Dates, D=Rate, E=Duration, F=Type, G=#Attended, H=Earnings
-      const earningsFormula = `=D${rowIndex}*G${rowIndex}*(E${rowIndex}/90)`;
+      // Duration: show 90 if all standard, 120 if all extended, "90, 120" if mixed
+      const hasStandard = attended.some((l) => !l.extended30Min);
+      const hasExtended = attended.some((l) => l.extended30Min);
+      const duration = hasStandard && hasExtended ? "90, 120" : hasExtended ? 120 : 90;
+
+      // Earnings: sum per-lesson using the current rate
+      const earnings = attended.reduce((sum, l) => {
+        return sum + rate * (l.extended30Min ? 4 / 3 : 1);
+      }, 0);
 
       rows.push([
         studentNames[studentId] ?? "Unknown",
@@ -175,9 +188,8 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
         duration,
         types.length > 0 ? types.join(", ") : "—",
         attended.length,
-        earningsFormula,
+        Math.round(earnings * 100) / 100,
       ]);
-      rowIndex++;
     }
 
     // 7. Clear and write

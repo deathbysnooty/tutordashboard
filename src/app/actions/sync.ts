@@ -160,16 +160,22 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
 
       const attended = groupLessons.filter((l) => l.status === "attended");
 
-      // Unique subjects
-      const subjects = [...new Set(groupLessons.map((l) => l.subject).filter(Boolean))];
-
       // Unique lesson types
       const types = [...new Set(groupLessons.map((l) =>
         l.lessonType === "individual" ? "1:1" : l.lessonType === "group" ? "Group" : null
       ).filter(Boolean))];
 
-      // Attended dates
-      const attendedDates = formatDates(attended);
+      // Attended dates — group by subject if multiple subjects
+      const subjects = [...new Set(attended.map((l) => l.subject).filter(Boolean))] as string[];
+      let attendedDates: string;
+      if (subjects.length > 1) {
+        attendedDates = subjects.map((subj) => {
+          const subjectLessons = attended.filter((l) => l.subject === subj);
+          return `${subj}: ${formatDates(subjectLessons)}`;
+        }).join("\n");
+      } else {
+        attendedDates = formatDates(attended);
+      }
 
       // Duration: show 90 if all standard, 120 if all extended, "90, 120" if mixed
       const hasStandard = attended.some((l) => !l.extended30Min);

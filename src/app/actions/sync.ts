@@ -28,13 +28,14 @@ type Lesson = {
   lessonType: string | null;
 };
 
-function formatDates(dates: string[]): string {
-  // dates are "YYYY-MM-DD" — sort them, show as "2 Jan, 12 Jan" etc.
-  const sorted = [...dates].sort();
-  return sorted.map((d) => {
-    const [, m, day] = d.split("-");
-    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    return `${parseInt(day)} ${months[parseInt(m) - 1]}`;
+function formatDates(lessons: { attendanceDate: string; extended30Min: boolean }[]): string {
+  // Sort by date, show as "2 Jan, 12 Jan" etc. Append * for 120 min lessons.
+  const sorted = [...lessons].sort((a, b) => a.attendanceDate.localeCompare(b.attendanceDate));
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return sorted.map((l) => {
+    const [, m, day] = l.attendanceDate.split("-");
+    const label = `${parseInt(day)} ${months[parseInt(m) - 1]}`;
+    return l.extended30Min ? `${label}*` : label;
   }).join(", ");
 }
 
@@ -168,7 +169,7 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
       ).filter(Boolean))];
 
       // Attended dates
-      const attendedDates = formatDates(attended.map((l) => l.attendanceDate));
+      const attendedDates = formatDates(attended);
 
       // Duration: show 90 if all standard, 120 if all extended, "90, 120" if mixed
       const hasStandard = attended.some((l) => !l.extended30Min);
@@ -192,12 +193,13 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
       ]);
     }
 
-    // Add total row
+    // Add total row + footnote
     const lastDataRow = rows.length; // header is row 1, so last data row = rows.length
     rows.push([
       "", "", "", "", "", "", "Total",
       `=SUM(H2:H${lastDataRow})`,
     ]);
+    rows.push(["* = 120 min lesson"]);
 
     // 7. Clear and write
     await sheets.spreadsheets.values.clear({

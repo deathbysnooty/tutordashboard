@@ -192,6 +192,13 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
       ]);
     }
 
+    // Add total row
+    const lastDataRow = rows.length; // header is row 1, so last data row = rows.length
+    rows.push([
+      "", "", "", "", "", "", "Total",
+      `=SUM(H2:H${lastDataRow})`,
+    ]);
+
     // 7. Clear and write
     await sheets.spreadsheets.values.clear({
       spreadsheetId: SPREADSHEET_ID,
@@ -210,13 +217,22 @@ export async function syncToSheet(month?: string): Promise<{ ok: boolean; error?
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
-        requests: [{
-          repeatCell: {
-            range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
-            cell: { userEnteredFormat: { textFormat: { bold: true } } },
-            fields: "userEnteredFormat.textFormat.bold",
+        requests: [
+          {
+            repeatCell: {
+              range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+              cell: { userEnteredFormat: { textFormat: { bold: true } } },
+              fields: "userEnteredFormat.textFormat.bold",
+            },
           },
-        }],
+          {
+            repeatCell: {
+              range: { sheetId, startRowIndex: rows.length - 1, endRowIndex: rows.length },
+              cell: { userEnteredFormat: { textFormat: { bold: true } } },
+              fields: "userEnteredFormat.textFormat.bold",
+            },
+          },
+        ],
       },
     });
 
